@@ -57,7 +57,17 @@ if ! command -v tsx &>/dev/null && ! npx tsx --version &>/dev/null 2>&1; then
   echo "       For faster execution: npm install -g tsx"
 fi
 
-# 6. Verify installation
+# 6. Install TypeScript LSP plugin for Claude Code (project-level)
+echo ""
+echo "[info] Installing TypeScript LSP plugin for Claude Code..."
+if command -v claude &>/dev/null; then
+  claude plugin add typescript-lsp 2>/dev/null && echo "[ok] TypeScript LSP plugin installed." || echo "[warn] Could not install TypeScript LSP plugin. Run manually: claude plugin add typescript-lsp"
+else
+  echo "[warn] Claude Code CLI not found. Install the TypeScript LSP plugin manually:"
+  echo "       claude plugin add typescript-lsp"
+fi
+
+# 7. Verify installation
 echo ""
 if [ -f "${SKILL_DIR}/SKILL.md" ] && [ -f "${SKILL_DIR}/scripts/config.ts" ]; then
   echo "[ok] e2e-forge installed successfully at: ${SKILL_DIR}"

@@ -69,7 +69,24 @@ if (-not $hasTsx) {
     Write-Host "       For faster execution: npm install -g tsx" -ForegroundColor Yellow
 }
 
-# 6. Verify installation
+# 6. Install TypeScript LSP plugin for Claude Code (project-level)
+Write-Host ""
+Write-Host "[info] Installing TypeScript LSP plugin for Claude Code..." -ForegroundColor Green
+
+try {
+    $claudePath = Get-Command claude -ErrorAction SilentlyContinue
+    if ($claudePath) {
+        claude plugin add typescript-lsp 2>$null
+        Write-Host "[ok] TypeScript LSP plugin installed." -ForegroundColor Green
+    } else {
+        Write-Host "[warn] Claude Code CLI not found. Install the TypeScript LSP plugin manually:" -ForegroundColor Yellow
+        Write-Host "       claude plugin add typescript-lsp" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "[warn] Could not install TypeScript LSP plugin. Run manually: claude plugin add typescript-lsp" -ForegroundColor Yellow
+}
+
+# 7. Verify installation
 Write-Host ""
 $skillMdExists = Test-Path (Join-Path $SkillDir "SKILL.md")
 $configExists = Test-Path (Join-Path $SkillDir "scripts\config.ts")

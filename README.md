@@ -36,7 +36,9 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 
 ## Features
 
-- **3 Modes**: CREATE (new endpoints), UPDATE (modified endpoints), BATCH (multiple endpoints)
+- **4 Modes**: CREATE (new endpoints), UPDATE (modified endpoints), BATCH (multiple endpoints), DOCUMENT (auto-generate docs only)
+- **Auto-Documentation**: Generates comprehensive `doc.md` with technical reference, JSON examples, request/response schemas, and dependency maps — all extracted from code and tests
+- **TypeScript LSP Integration**: Uses the TypeScript LSP plugin for deep reference analysis — traces validators, middleware, models, and cross-endpoint dependencies
 - **Smart Dataset Selection**: Intelligently decides which Axiom datasets to query based on endpoint analysis
 - **Auto-Discovery**: Detects which datasets your token can access and caches for the session
 - **Proactive Warnings**: Alerts you when logs are incomplete, stale, or missing error scenarios
@@ -116,6 +118,19 @@ npm install -g tsx
 
 # Or as devDependency (works via npx)
 pnpm add -D tsx
+```
+
+### 5. TypeScript LSP Plugin (auto-installed)
+
+The installer automatically installs the [TypeScript LSP plugin](https://claude.com/plugins/typescript-lsp) for Claude Code. This enables deep reference analysis in Mode 4 (DOCUMENT):
+
+- Find all references to functions, models, middleware
+- Go to definition to trace validator logic
+- Symbol search across the entire project
+
+If it wasn't auto-installed:
+```bash
+claude plugin add typescript-lsp
 ```
 
 ---
@@ -408,6 +423,30 @@ For processing multiple endpoints. The skill:
 2. Gathers context for ALL endpoints before starting
 3. Processes each sequentially through Mode 1 or 2
 4. Produces a summary report
+
+### Mode 4: DOCUMENT (no test changes)
+
+For generating or updating `doc.md` **without** touching tests or source code. The skill:
+
+1. Reads `route.ts` — extracts method, validators, middleware, error codes, response shapes
+2. Reads `e2e.test.ts` (if exists) — extracts validated request/response JSON examples
+3. Uses **TypeScript LSP** to trace all references: validators, models, helpers, middleware
+4. Runs `frontend-tracer.ts` to find all frontend callers
+5. Searches backend for cross-endpoint references
+6. Generates comprehensive `doc.md` with technical reference, JSON examples, and dependency map
+
+**Trigger**: Say "documenta el endpoint del login" or "generate docs for auth/login"
+
+The generated `doc.md` includes:
+- Business purpose (inferred from code and tests)
+- Full request/response schema with types and validations
+- JSON examples for every scenario (happy path + errors)
+- Validator and middleware documentation
+- Internal and external dependency maps
+- Frontend consumer list
+- Edge cases
+
+This mode also supports batch: "documenta todos los endpoints sin doc.md"
 
 ---
 
