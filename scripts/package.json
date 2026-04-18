@@ -1,0 +1,21 @@
+{
+  "name": "e2e-forge-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Pre-built scripts for e2e-forge skill - Axiom log extraction and analysis",
+  "scripts": {
+    "extract": "npx tsx extract-axiom.ts",
+    "routes": "npx tsx route-mapper.ts",
+    "trace": "npx tsx frontend-tracer.ts",
+    "coverage": "npx tsx coverage-analyzer.ts",
+    "batch": "npx tsx batch-extract.ts"
+  },
+  "dependencies": {
+    "@axiomhq/js": "^1.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
