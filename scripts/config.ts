@@ -1,7 +1,7 @@
 import { Axiom } from '@axiomhq/js';
 
 export const AXIOM_TOKEN = process.env.AXIOM_QUERY_TOKEN;
-export const QUERY_DAYS = parseInt(process.env.AXIOM_QUERY_DAYS || '30');
+export const DEFAULT_QUERY_DAYS = 30;
 export const QUERY_BATCH_DAYS = 10;
 export const QUERY_DELAY_MS = 1000;
 export const MAX_SAMPLES_PER_ENDPOINT = 20;

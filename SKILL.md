@@ -22,6 +22,89 @@ Automated e2e test creation and improvement using real production logs, prompt e
 - Batch creating/updating tests for multiple endpoints
 - Auditing test coverage gaps across the project
 - Detecting code smells or errors in endpoint implementations
+- **Generating or updating endpoint documentation** (`doc.md`) without modifying tests or code
+
+## Codebase Architecture: Modern vs Legacy Endpoints (CRITICAL)
+
+The agent MUST understand the difference between modern and legacy endpoint patterns:
+
+### Modern Pattern (preferred)
+
+Modern endpoints use **helpers** — typed functions with explicit input/output interfaces that `throw` on controlled errors. No middleware folder involved.
+
+```typescript
+// Modern route.ts example (like auth/login)
+import { validateLogin } from '@/helpers/auth/validateLogin';
+import { response } from '@/helpers/response';
+
+export const validators = [checkAuth]; // only auth middleware, no validation middleware
+
+export default async function (req: Request, res: Response, next: Next) {
+  const { cellphone, password } = req.body.data;
+  const result = await validateLogin({ cellphone, password }); // typed helper with throw
+  return response(res, req, next).success(result);
+}
+```
+
+### Legacy Pattern (deprecated)
+
+Legacy endpoints use **middleware from `middleware/`** for validation — the `middleware/` folder is DEPRECATED.
+
+```typescript
+// Legacy route.ts example (like auth/register)
+import { checkAuth } from '@/middleware/check-auth';
+import { validateRegister } from '@/middleware/validators/register'; // LEGACY
+export const validators = [checkAuth, validateRegister]; // middleware-based validation
+```
+
+### Detection Rule
+
+When analyzing an endpoint, the agent checks:
+- If `validators` array imports from `@/middleware/validators/` → **LEGACY** endpoint
+- If validation logic lives in `@/helpers/` with typed interfaces → **MODERN** endpoint
+- If the endpoint uses `middleware/` folder (except `check-auth`) → **LEGACY**
+
+### What to do with legacy endpoints
+
+When the agent encounters a legacy endpoint:
+1. **Flag it** in `doc.md` under a `## Legacy Notice` section
+2. **Add a `// TODO:` comment** in the code (see TODO Protocol below)
+3. **Still generate tests and docs** — don't skip legacy endpoints
+4. **Note in the report**: "This endpoint uses the legacy middleware pattern. Consider migrating to typed helpers."
+
+---
+
+## TODO Comment Protocol (MANDATORY)
+
+Whenever the agent detects a potential problem during ANY mode (CREATE, UPDATE, BATCH, DOCUMENT), it MUST insert a `// TODO:` comment directly in the source code at the exact location of the issue.
+
+### Format
+
+```typescript
+// TODO: [CATEGORY] Short, actionable description
+```
+
+### Categories
+
+| Category | When to use | Example |
+|----------|------------|---------|
+| `CODE_SMELL` | Bad practice, duplication, unclear logic | `// TODO: [CODE_SMELL] Extract repeated DB query into helper` |
+| `BUG` | Likely bug or incorrect behavior | `// TODO: [BUG] Returns 200 but data is undefined when user has no orders` |
+| `MISSING_VALIDATION` | Input not validated before use | `// TODO: [MISSING_VALIDATION] field 'amount' used without checking type or range` |
+| `SECURITY` | Potential security vulnerability | `// TODO: [SECURITY] SQL injection risk — use parameterized query` |
+| `LEGACY` | Uses deprecated pattern | `// TODO: [LEGACY] Migrate from middleware validators to typed helpers` |
+| `PERFORMANCE` | N+1 queries, missing indexes, etc. | `// TODO: [PERFORMANCE] N+1 query — fetching user inside loop` |
+| `MISSING_ERROR_HANDLING` | Unhandled error path | `// TODO: [MISSING_ERROR_HANDLING] Provider call has no try/catch` |
+| `DEAD_CODE` | Code that is never reached | `// TODO: [DEAD_CODE] This branch is never hit (Axiom logs show 0 occurrences)` |
+
+### Rules
+
+1. **One TODO per issue** — don't combine multiple issues in one comment
+2. **Place at the exact line** — not at the top of the file, at the actual problematic line
+3. **Be specific** — "missing validation" is bad, "field 'amount' used without checking type or range" is good
+4. **Include evidence** — if you know from Axiom logs, say so: "Axiom shows 0 hits on this branch in 30 days"
+5. **Report to user** — after inserting TODOs, summarize them in the final report with file:line references
+6. **Don't duplicate** — if a TODO already exists at that line, don't add another one for the same issue
 
 ## Pre-requisites
 
@@ -144,12 +227,13 @@ Use when the endpoint has no `e2e.test.ts` file yet.
 
 **Flow:**
 1. Context Gathering (MANDATORY — see Context Protocol below)
-2. Code Analysis — read `route.ts`, trace validators, imports, services
+2. Code Analysis — read `route.ts`, trace validators, imports, services. Detect modern vs legacy pattern.
 3. Frontend Tracing — run `frontend-tracer.ts` script
 4. Doc Generation — create `doc.md` in the endpoint folder
 5. Test Generation — apply CREA framework to generate the e2e test
 6. TDD Loop — create failing scaffold, iterate until green (see TDD Protocol)
-7. Code Smell Detection — analyze endpoint for issues (see Smell Checklist)
+7. Code Smell Detection — analyze endpoint, **insert `// TODO:` comments** in source code for every issue found
+8. Report — summarize all TODOs inserted with file:line references
 
 ### Mode 2: UPDATE (existing endpoint modified)
 
@@ -157,13 +241,14 @@ Use when the endpoint already has an `e2e.test.ts` and has been modified.
 
 **Flow:**
 1. Context Gathering (MANDATORY)
-2. Axiom Log Extraction — run `extract-axiom.ts --endpoint {path} --days 30`
+2. Axiom Log Extraction — run `extract-axiom.ts --endpoint {path} --days 30` (default 30 days, user can override e.g. "con los logs de hace 60 días")
 3. Diff Analysis — `git diff` on the route.ts to see changes
 4. Log vs New Behavior — compare production logs with new expected I/O
 5. Doc Update — update `doc.md` with new context
 6. Test Update — improve existing test with new scenarios
 7. TDD Loop — run existing test, iterate until all new assertions pass
-8. Code Smell Detection
+8. Code Smell Detection — **insert `// TODO:` comments** for every issue found
+9. Report — summarize all TODOs inserted with file:line references
 
 ### Mode 3: BATCH (multiple endpoints)
 
@@ -179,27 +264,35 @@ Use when processing multiple endpoints at once.
 
 Use when the user says "document", "documentar", "genera la documentación", or any variant that focuses on doc.md without mentioning tests. Also use when `doc.md` needs to be updated after an endpoint change.
 
-**Trigger phrases**: "documenta el endpoint X", "actualiza la doc del login", "genera doc.md para X", "usa e2e-forge para documentar X"
+**Trigger phrases**: "documenta el endpoint X", "actualiza la doc del login", "genera doc.md para X", "usa e2e-forge para documentar X", "actualiza la documentación del login"
+
+**Example prompts:**
+- `"Actualiza la documentación del login"` → runs Mode 4 on `app/auth/login/`
+- `"Documenta el endpoint de transactions/approve"` → runs Mode 4 on `app/transactions/approve/`
+- `"Genera la documentación para todos los endpoints de auth"` → runs Mode 4 BATCH filtered by `auth` domain
+- `"Documenta todos los endpoints sin doc.md"` → runs Mode 4 BATCH on all endpoints missing `doc.md`
 
 **Flow:**
-1. **Read `route.ts`** — extract HTTP method, path, validators array, middleware, handler logic, imports, error codes, response shapes
+1. **Read `route.ts`** — extract HTTP method, path, validators array, handler logic, imports, error codes, response shapes. Detect modern vs legacy pattern.
 2. **Read `e2e.test.ts`** (if exists) — extract tested scenarios, request payloads, expected responses. This provides validated examples of real input/output.
 3. **LSP Reference Analysis** (MANDATORY) — use the TypeScript LSP MCP plugin to:
    - Find all references to the route handler function
    - Find all references to imported services, models, middleware
-   - Trace validator functions to understand input constraints
+   - Trace validator/helper functions to understand input constraints and error codes
    - Find all callers of shared helpers used by this endpoint
 4. **Frontend Tracing** — run `frontend-tracer.ts` to find all `postRequest()` calls in frontend/admin
 5. **Backend Tracing** — use `Grep` to find all backend references to this endpoint path (other routes calling it, cron jobs, webhooks, etc.)
 6. **Read existing `doc.md`** (if exists) — use as base context, preserve any manual notes or assumptions
 7. **Generate/Update `doc.md`** — write the full documentation using the expanded template (see Doc Generation below)
+8. **Insert `// TODO:` comments** — if code smells, missing validations, or legacy patterns are detected during analysis, insert TODOs in `route.ts` (this is the ONE exception to "don't modify source" — TODOs are metadata, not logic changes)
 
 **Critical rules for DOCUMENT mode:**
 - **NEVER modify `e2e.test.ts`** — read-only access to tests
-- **NEVER modify `route.ts`** — read-only access to source code
+- **NEVER modify `route.ts` LOGIC** — only insert `// TODO:` comments, never change behavior
 - **DO NOT ask the user for business context** — infer everything from code, tests, references, and existing docs. If something is ambiguous, document it as "Inferred: ..." and flag it.
-- **DO trace ALL dependencies** — every import, every middleware, every model used
-- **DO generate real JSON examples** — extract from e2e.test.ts payloads or construct from validator schemas
+- **DO trace ALL dependencies** — every import, every helper, every model used
+- **DO generate real JSON examples** — extract from e2e.test.ts payloads or construct from validator/helper type definitions
+- **DO flag legacy endpoints** — if the endpoint uses `middleware/` for validation, add a `## Legacy Notice` section in doc.md
 
 ### Mode 4 BATCH: Document multiple endpoints
 

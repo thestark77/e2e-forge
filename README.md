@@ -56,7 +56,7 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 ### Unix / macOS / Linux / WSL
 
 ```bash
-git clone https://github.com/gentleman-programming/e2e-forge.git
+git clone https://github.com/thestark77/e2e-forge.git
 cd e2e-forge
 bash install.sh
 ```
@@ -64,7 +64,7 @@ bash install.sh
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/gentleman-programming/e2e-forge.git
+git clone https://github.com/thestark77/e2e-forge.git
 cd e2e-forge
 .\install.ps1
 ```
@@ -148,7 +148,8 @@ claude plugin add typescript-lsp
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AXIOM_DATASETS` | Comma-separated list of datasets to query. If not set, the skill auto-discovers accessible datasets. | *(all known datasets)* |
-| `AXIOM_QUERY_DAYS` | Default number of days to look back in logs | `30` |
+
+> **Log lookback**: The skill defaults to **30 days**. You can override per-request by saying e.g. "con los logs de hace 60 días". Axiom retains logs for at least 90 days. No env var needed.
 
 Add these to your backend `.env` file:
 
@@ -158,9 +159,6 @@ AXIOM_QUERY_TOKEN=xaat-your-token-here
 
 # Optional — Restrict to specific datasets (saves queries if you don't have access to all)
 AXIOM_DATASETS=bemovil2,errors,bemovil2-providers
-
-# Optional — Default lookback period
-AXIOM_QUERY_DAYS=30
 ```
 
 ---
@@ -435,7 +433,23 @@ For generating or updating `doc.md` **without** touching tests or source code. T
 5. Searches backend for cross-endpoint references
 6. Generates comprehensive `doc.md` with technical reference, JSON examples, and dependency map
 
-**Trigger**: Say "documenta el endpoint del login" or "generate docs for auth/login"
+**Example prompts**:
+
+```
+Actualiza la documentación del login
+```
+
+```
+Generate docs for auth/login
+```
+
+```
+Documenta todos los endpoints sin doc.md
+```
+
+```
+Update doc.md for transactions/approve — I added a new validation
+```
 
 The generated `doc.md` includes:
 - Business purpose (inferred from code and tests)
@@ -447,6 +461,43 @@ The generated `doc.md` includes:
 - Edge cases
 
 This mode also supports batch: "documenta todos los endpoints sin doc.md"
+
+---
+
+## Modern vs Legacy Endpoints
+
+The skill automatically detects whether an endpoint follows the **modern** or **legacy** pattern:
+
+| Aspect | Modern | Legacy |
+|--------|--------|--------|
+| Validation | Typed helpers in `@/helpers/` with interfaces and `throw` | `export const validators` importing from `@/middleware/validators/` |
+| Error handling | `throw` with typed error objects | Middleware chain with `next(err)` |
+| Example | `app/auth/login/route.ts` | `app/auth/register/route.ts` |
+
+**Detection rule**: If the `validators` array imports from `@/middleware/validators/` → **LEGACY**. If validation uses `@/helpers/` with typed interfaces → **MODERN**.
+
+The `middleware/` folder is **deprecated**. When the skill detects a legacy endpoint, it flags it with a `// TODO: [LEGACY]` comment and documents the pattern in `doc.md`.
+
+---
+
+## TODO Comment Protocol
+
+Every time the skill analyzes an endpoint (in any mode), it inserts `// TODO:` comments directly in the source code for every detected issue:
+
+```typescript
+// TODO: [CODE_SMELL] Function exceeds 50 lines — extract validation logic
+// TODO: [BUG] Missing null check on user.mfaSecret before comparison
+// TODO: [MISSING_VALIDATION] cellphone field accepts any string — add regex
+// TODO: [SECURITY] Password compared with == instead of timing-safe comparison
+// TODO: [LEGACY] Validators use deprecated middleware/ pattern — migrate to helpers/
+// TODO: [PERFORMANCE] N+1 query inside loop — use batch fetch
+// TODO: [MISSING_ERROR_HANDLING] Provider call has no try/catch
+// TODO: [DEAD_CODE] Branch unreachable — status is always 'active' at this point
+```
+
+**Categories**: `CODE_SMELL`, `BUG`, `MISSING_VALIDATION`, `SECURITY`, `LEGACY`, `PERFORMANCE`, `MISSING_ERROR_HANDLING`, `DEAD_CODE`
+
+TODOs are inserted in `route.ts` (and related files) — **never** in `e2e.test.ts`.
 
 ---
 

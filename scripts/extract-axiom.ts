@@ -3,7 +3,7 @@ import {
   ALL_DATASETS,
   MAX_SAMPLES_PER_ENDPOINT,
   QUERY_BATCH_DAYS,
-  QUERY_DAYS,
+  DEFAULT_QUERY_DAYS,
   QUERY_DELAY_MS,
   sleep,
   getConfiguredDatasets,
@@ -34,7 +34,7 @@ import type { Axiom } from '@axiomhq/js';
 function parseArgs(): { endpoint: string; days: number; datasets: string[]; discover: boolean } {
   const args = process.argv.slice(2);
   let endpoint = '';
-  let days = QUERY_DAYS;
+  let days = DEFAULT_QUERY_DAYS;
   let datasets: string[] = [];
   let discover = false;
 
