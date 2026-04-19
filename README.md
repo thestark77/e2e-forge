@@ -128,9 +128,9 @@ The installer automatically installs the [TypeScript LSP plugin](https://claude.
 - Go to definition to trace validator logic
 - Symbol search across the entire project
 
-If it wasn't auto-installed:
+If it wasn't auto-installed (requires a marketplace that provides the plugin to be registered first):
 ```bash
-claude plugin add typescript-lsp
+claude plugin install typescript-lsp
 ```
 
 ---

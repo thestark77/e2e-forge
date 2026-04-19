@@ -7,6 +7,13 @@ $ErrorActionPreference = "Stop"
 $SkillName = "e2e-forge"
 $SkillDir = Join-Path $env:USERPROFILE ".claude\skills\$SkillName"
 
+$script:Warnings = @()
+function Add-Warning {
+    param([string]$Message)
+    $script:Warnings += $Message
+    Write-Host "[warn] $Message" -ForegroundColor Yellow
+}
+
 Write-Host "=== E2E Forge Installer ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -45,45 +52,50 @@ Push-Location $ScriptsDir
 
 try {
     if (Get-Command pnpm -ErrorAction SilentlyContinue) {
-        pnpm install 2>$null
+        pnpm install
+        if ($LASTEXITCODE -ne 0) {
+            Add-Warning "pnpm install failed. Run manually: cd $ScriptsDir; pnpm install"
+        }
     } elseif (Get-Command npm -ErrorAction SilentlyContinue) {
-        npm install 2>$null
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            Add-Warning "npm install failed. Run manually: cd $ScriptsDir; npm install"
+        }
     } else {
-        Write-Host "[warn] No package manager found. Install dependencies manually:" -ForegroundColor Yellow
-        Write-Host "       cd $ScriptsDir && npm install" -ForegroundColor Yellow
+        Add-Warning "No package manager found. Run manually: cd $ScriptsDir; npm install"
     }
 } finally {
     Pop-Location
 }
 
-# 5. Check for tsx
+# 5. Check for tsx (optional — falls back to npx tsx)
 $hasTsx = $false
 try {
-    tsx --version 2>$null | Out-Null
-    $hasTsx = $true
+    $null = & tsx --version 2>$null
+    if ($LASTEXITCODE -eq 0) { $hasTsx = $true }
 } catch {}
 
 if (-not $hasTsx) {
-    Write-Host ""
-    Write-Host "[warn] tsx not found globally. Scripts will use npx tsx (slower first run)." -ForegroundColor Yellow
-    Write-Host "       For faster execution: npm install -g tsx" -ForegroundColor Yellow
+    Add-Warning "tsx not found. Scripts will use 'npx tsx' (slower first run). For faster execution: npm install -g tsx"
 }
 
-# 6. Install TypeScript LSP plugin for Claude Code (project-level)
+# 6. Install TypeScript LSP plugin for Claude Code (optional — Mode 4 DOCUMENT only)
 Write-Host ""
 Write-Host "[info] Installing TypeScript LSP plugin for Claude Code..." -ForegroundColor Green
 
-try {
-    $claudePath = Get-Command claude -ErrorAction SilentlyContinue
-    if ($claudePath) {
-        claude plugin add typescript-lsp 2>$null
+$claudePath = Get-Command claude -ErrorAction SilentlyContinue
+if ($claudePath) {
+    $pluginOutput = & claude plugin install typescript-lsp 2>&1
+    $pluginJoined = ($pluginOutput | Out-String)
+    if ($pluginJoined -match "(?i)installed|success|already") {
         Write-Host "[ok] TypeScript LSP plugin installed." -ForegroundColor Green
     } else {
-        Write-Host "[warn] Claude Code CLI not found. Install the TypeScript LSP plugin manually:" -ForegroundColor Yellow
-        Write-Host "       claude plugin add typescript-lsp" -ForegroundColor Yellow
+        Add-Warning "Could not install TypeScript LSP plugin (needed only for Mode 4: DOCUMENT)."
+        Add-Warning "  Reason: $($pluginJoined.Trim())"
+        Add-Warning "  Fix: register a marketplace that provides it, then run: claude plugin install typescript-lsp"
     }
-} catch {
-    Write-Host "[warn] Could not install TypeScript LSP plugin. Run manually: claude plugin add typescript-lsp" -ForegroundColor Yellow
+} else {
+    Add-Warning "Claude Code CLI not found. Install the TypeScript LSP plugin manually: claude plugin install typescript-lsp"
 }
 
 # 7. Verify installation
@@ -98,7 +110,17 @@ if ($skillMdExists -and $configExists) {
     exit 1
 }
 
-# 7. Remind about env setup
+# 8. Warnings summary
+if ($script:Warnings.Count -gt 0) {
+    Write-Host ""
+    Write-Host "=== Warnings ($($script:Warnings.Count)) ===" -ForegroundColor Yellow
+    foreach ($w in $script:Warnings) {
+        Write-Host "  - $w" -ForegroundColor Yellow
+    }
+    Write-Host "The skill is installed, but review the warnings above before using it." -ForegroundColor Yellow
+}
+
+# 9. Remind about env setup
 Write-Host ""
 Write-Host "=== Next Steps ===" -ForegroundColor Cyan
 Write-Host ""

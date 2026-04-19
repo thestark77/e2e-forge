@@ -128,7 +128,7 @@ The TypeScript LSP plugin (`claude.com/plugins/typescript-lsp`) enables deep cod
 The installer scripts auto-install this plugin. If it's missing, the agent should run:
 
 ```bash
-claude plugin add typescript-lsp
+claude plugin install typescript-lsp
 ```
 
 The agent uses this plugin in Mode 4 (DOCUMENT) and during Code Analysis in other modes to:
