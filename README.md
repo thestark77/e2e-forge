@@ -51,6 +51,23 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 
 ---
 
+## ⚠️ Required Model Setup (read before installing)
+
+This skill is engineered for a **specific Claude model split**. Using other models will degrade results.
+
+- **Orchestrator (main session): Opus 4.6** — REQUIRED.
+- **Sub-agents: Sonnet 4.6** — the skill launches every Agent tool call with `model: "sonnet"` automatically.
+
+**Before running `/e2e-forge`, switch the active model to Opus 4.6:**
+
+```
+/model opus-4-6
+```
+
+If you are not on Opus 4.6, the skill will refuse to proceed.
+
+---
+
 ## Quick Install
 
 ### Unix / macOS / Linux / WSL

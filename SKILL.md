@@ -15,6 +15,22 @@ allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Monitor, AskUserQuestion, Ag
 
 Automated e2e test creation and improvement using real production logs, prompt engineering, and TDD iteration loops.
 
+## Model Requirements (MANDATORY — READ FIRST)
+
+This skill is engineered for a very specific model split. **Do not run it with other models** — the orchestration, context handling, and code reasoning are calibrated to this split and will degrade noticeably outside of it.
+
+- **Orchestrator (main session): Opus 4.6** — required. The main agent drives mode selection, context gathering, quality gates, and TDD loops. It needs Opus 4.6's reasoning and long-context handling.
+- **Sub-agents (Agent tool): Sonnet 4.6** — required. Every spawned sub-agent (Explore, Plan, research, parallel extraction, code-reviewer, etc.) MUST be launched on Sonnet 4.6. Pass `model: "sonnet"` (or the explicit `claude-sonnet-4-6` id) in every Agent tool call.
+
+**Before doing anything else**, the agent MUST:
+
+1. Verify the active model is Opus 4.6. If it is not, STOP and instruct the user:
+   > ⚠️ This skill requires Opus 4.6 as the orchestrator. Please switch with `/model opus-4-6` inside Claude Code and re-run the skill.
+2. Refuse to proceed until the user confirms Opus 4.6 is active.
+3. For every Agent tool invocation, explicitly set `model: "sonnet"` so sub-agents run on Sonnet 4.6 — never let sub-agents inherit Opus.
+
+Rationale: Opus 4.6 on the orchestrator preserves coherence across long TDD loops and multi-endpoint batches; Sonnet 4.6 on sub-agents keeps per-spawn cost and latency tractable for the heavy parallel work (Axiom extraction, LSP traces, frontend tracing, coverage analysis).
+
 ## When to Use
 
 - Creating a new e2e test for an API endpoint
