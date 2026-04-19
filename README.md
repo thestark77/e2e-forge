@@ -16,8 +16,8 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 │  │  built)   │   │ (asks    │   │  framework)    │   │
 │  │           │   │  user)   │   │                │   │
 │  └─────┬─────┘   └────┬─────┘   └───────┬────────┘   │
-│        │              │                  │           │
-│        ▼              ▼                  ▼           │
+│        │              │                 │            │
+│        ▼              ▼                 ▼            │
 │  ┌──────────────────────────────────────────────┐    │
 │  │             TDD Monitor Loop                 │    │
 │  │  Run test → fail → fix → re-run → pass       │    │
