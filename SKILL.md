@@ -122,6 +122,110 @@ Whenever the agent detects a potential problem during ANY mode (CREATE, UPDATE, 
 5. **Report to user** — after inserting TODOs, summarize them in the final report with file:line references
 6. **Don't duplicate** — if a TODO already exists at that line, don't add another one for the same issue
 
+---
+
+## Test Idempotency Protocol (MANDATORY)
+
+Tests run against a REAL sandbox database shared by the team. The goal is **idempotency**: every test MUST be able to run N times consecutively and produce the same result. Not every DB side effect needs reversal — only those that would break the next run.
+
+### Decision Criteria
+
+When the endpoint modifies the database, the agent asks: **"Will this prevent the test from passing on the next run?"**
+
+| Situation | Action | Why |
+|-----------|--------|-----|
+| Endpoint **modifies shared state** (password, email, phone, balance, permissions of the test user) | **REVERT in `afterEach`** | Next run would fail (wrong credentials, insufficient balance, etc.) |
+| Endpoint **creates a record with a unique constraint** (unique email, unique phone, unique code) | **Use dynamic/random data** so each run creates a different record | Next run would get a uniqueness violation |
+| Endpoint **creates a record WITHOUT unique constraints** (transaction log, audit entry, notification) | **No cleanup needed** — leave it | Harmless; doesn't affect next run |
+| Endpoint **deletes a record** needed by the test | **Restore in `afterEach`** | Next run would fail (record not found) |
+| Endpoint **deletes a record** NOT needed by any test | **No cleanup needed** | Harmless |
+
+### Pattern 1: Revert shared state (credentials, balances, status)
+
+Use when the endpoint modifies data that the test (or other tests) depends on for setup.
+
+```typescript
+describe('POST /api/v1/auth/change-password', () => {
+  let originalPassword: string;
+
+  beforeEach(async () => {
+    const user = await db.User.findByPk(global.testUserId);
+    originalPassword = user!.password;
+  });
+
+  afterEach(async () => {
+    await db.User.update(
+      { password: originalPassword },
+      { where: { id: global.testUserId } }
+    );
+  });
+
+  it('changes password successfully', async () => {
+    // ...endpoint changes the password in the DB...
+    // afterEach restores it so the next run can log in again
+  });
+});
+```
+
+### Pattern 2: Dynamic data for unique constraints
+
+Use when the endpoint creates records that have unique columns (email, phone, code, etc.).
+
+```typescript
+describe('POST /api/v1/users/invite', () => {
+  it('invites a new user', async () => {
+    const uniqueEmail = `test-${Date.now()}@example.com`;
+
+    const res = await request(global.app)
+      .post('/api/v1/users/invite')
+      .set('Authorization', `Bearer ${global.authToken}`)
+      .send({
+        _deviceId: global.deviceId,
+        data: { email: uniqueEmail, role: 'viewer' },
+      });
+
+    expect(res.status).toBe(200);
+    // No cleanup needed — each run uses a different email
+  });
+});
+```
+
+### Pattern 3: Restore deleted records
+
+Use when the endpoint deletes a record that the test needs to exist.
+
+```typescript
+describe('DELETE /api/v1/user/device/:id', () => {
+  let deviceSnapshot: Record<string, unknown>;
+
+  beforeEach(async () => {
+    const device = await db.Device.findByPk(targetDeviceId);
+    deviceSnapshot = device!.toJSON();
+  });
+
+  afterEach(async () => {
+    await db.Device.upsert(deviceSnapshot);
+  });
+
+  it('deletes the device', async () => {
+    // ...endpoint deletes the device...
+    // afterEach re-creates it so the next run finds it
+  });
+});
+```
+
+### Rules
+
+1. **Use `afterEach` for reversals** — never inline cleanup that could be skipped if the test fails
+2. **Only revert what breaks idempotency** — don't clean up harmless records (logs, transactions without unique constraints)
+3. **Dynamic data over cleanup** — prefer `Date.now()` or `crypto.randomUUID()` suffixes for unique fields instead of creating and then deleting
+4. **Shared test credentials are sacred** — if the test changes the test user's password, email, phone, or auth state, reversal is MANDATORY
+5. **Use `force: true`** on destroy to bypass paranoid/soft-delete
+6. **If the endpoint calls external providers** with irreversible side effects, document in `doc.md` under `## External Side Effects`
+7. **The agent MUST analyze `route.ts`** to identify DB operations that affect idempotency (`update` on shared records, `create` with unique constraints, `destroy` of test fixtures)
+
+---
+
 ## Pre-requisites
 
 Before using this skill, the project MUST have:
@@ -341,7 +445,7 @@ The user can say "documenta todos los endpoints sin doc.md" or "actualiza la doc
 |----------|------|
 | External provider interactions? | If route.ts imports provider services |
 | Required user roles/permissions? | If validators include role checks |
-| DB records created that need cleanup? | If route creates/modifies records |
+| DB side effects that break re-runs? | ALWAYS — identify operations that modify shared state (credentials, balances) or create records with unique constraints (see Test Idempotency Protocol) |
 | Concurrency concerns? | If multiple users can hit simultaneously |
 | Rate limiting? | If middleware includes rate limits |
 
@@ -675,7 +779,7 @@ Apply the CREA framework (Contexto, Rol, Especificidad, Accion) combined with pr
 **E (Especificidad)**:
 - Follow EXACTLY the canonical test patterns (see below)
 - Cover every status code documented in doc.md
-- Include cleanup for any DB records created
+- Follow the Test Idempotency Protocol: identify DB side effects that would prevent the test from running again (shared state changes, unique constraint conflicts) and add reversal or dynamic data as needed
 - Mock external services, never real providers
 - Test validation errors (missing fields, invalid types, max lengths)
 - Test auth requirements (no token, invalid token, expired token)
@@ -697,9 +801,11 @@ import db from '@/models/conn';
 // === DESCRIBE BLOCK ===
 describe('POST /api/v1/{path}', () => {
 
-  // === CLEANUP (if mocks used) ===
-  afterEach(() => {
+  // === CLEANUP (mocks + idempotency — see Test Idempotency Protocol) ===
+  afterEach(async () => {
     vi.restoreAllMocks();
+    // Revert shared state if the endpoint modifies it (credentials, balances, etc.)
+    // Only needed when the change would break re-runs — harmless records can stay
   });
 
   // === VALIDATION TESTS ===
@@ -739,7 +845,7 @@ describe('POST /api/v1/{path}', () => {
         data: { /* payload triggering the error */ },
       });
 
-    // Cleanup BEFORE assertions
+    // Setup records can be cleaned inline; idempotency reversals go in afterEach
     await record.destroy({ force: true });
 
     expect(res.status).toBe({status});
@@ -819,7 +925,7 @@ After all tests pass, verify:
 - Happy path is tested
 - Auth requirements are tested
 - Input validation is tested
-- DB cleanup is present for any created records
+- Test Idempotency verified: test can run N times consecutively without failure
 
 If coverage is incomplete, add missing tests and re-run.
 
@@ -840,7 +946,7 @@ After generating/updating the test, proactively analyze the endpoint `route.ts` 
 | Dead code | Code paths that Axiom logs show are never reached | MEDIUM |
 | N+1 queries | DB queries inside loops | HIGH |
 | Missing response format | Not using `helpers/response` for consistent format | MEDIUM |
-| Uncleaned test data | Test creates DB records but doesn't destroy them | HIGH |
+| Test idempotency violation | Test modifies shared state or creates unique-constrained records without reversal/dynamic data — will fail on re-run | CRITICAL |
 
 Report findings to the user with:
 1. What was found
@@ -902,7 +1008,7 @@ A test is considered COMPLETE only when ALL of these pass:
 - [ ] Auth test exists (401 without token)
 - [ ] Validation test exists (400 with missing required field)
 - [ ] Happy path test exists (200 with valid payload)
-- [ ] DB cleanup verified (no orphaned records after test run)
+- [ ] Test Idempotency verified: test can run N times consecutively without failure. Shared state reverted, unique constraints use dynamic data
 - [ ] doc.md is up to date with all context
 - [ ] Code smell report generated
 
