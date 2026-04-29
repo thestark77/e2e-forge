@@ -115,20 +115,11 @@ Create a new API token at [app.axiom.co](https://app.axiom.co) > Settings > API 
 
 > **Important**: Existing ingest tokens (`xait-...`) can NOT query data. You need an API token (`xaat-...`) with query permissions.
 
-### 2. Backend Dependency
-
-```bash
-# In your backend directory
-pnpm add -D @axiomhq/js
-# or
-npm install -D @axiomhq/js
-```
-
-### 3. Test Framework
+### 2. Test Framework
 
 Your project needs **Vitest + Supertest** configured (or equivalent). The skill reads your existing test patterns and follows them.
 
-### 4. tsx (TypeScript executor)
+### 3. tsx (TypeScript executor)
 
 ```bash
 # Globally (recommended for speed)
@@ -138,7 +129,7 @@ npm install -g tsx
 pnpm add -D tsx
 ```
 
-### 5. TypeScript LSP Plugin (auto-installed)
+### 4. TypeScript LSP Plugin (auto-installed)
 
 The installer automatically installs the [TypeScript LSP plugin](https://claude.com/plugins/typescript-lsp) for Claude Code. This enables deep reference analysis in Mode 4 (DOCUMENT):
 
@@ -536,7 +527,7 @@ A test is considered COMPLETE only when ALL of these pass:
 - [ ] Auth test exists (401 without token)
 - [ ] Validation test exists (400 with missing required field)
 - [ ] Happy path test exists (200 with valid payload)
-- [ ] DB cleanup verified (no orphaned records)
+- [ ] Test Idempotency verified (test can run N times without failure)
 - [ ] `doc.md` is up to date
 - [ ] Code smell report generated
 
