@@ -127,9 +127,9 @@ Whenever the agent detects a potential problem during ANY mode (CREATE, UPDATE, 
 Before using this skill, the project MUST have:
 
 1. **Axiom API token** with query permissions in env var `AXIOM_QUERY_TOKEN`
-2. **`@axiomhq/js`** installed as a devDependency
+2. **`@axiomhq/js`** — bundled with e2e-forge scripts (auto-installed on first run)
 3. **Vitest + Supertest** configured (or equivalent test framework)
-4. **`tsx`** available globally or as devDependency (for running extraction scripts)
+4. **`tsx`** — bundled with e2e-forge scripts (auto-installed on first run)
 5. **TypeScript LSP MCP plugin** installed at project level for deep reference analysis (Mode 4: DOCUMENT)
 
 If any prerequisite is missing, inform the user with the exact install command.
@@ -366,6 +366,10 @@ The agent MUST resolve the absolute path to the skill directory BEFORE running a
 3. Cache the resolved path for the rest of the session
 
 **CRITICAL (Windows/Git Bash):** Always use the platform-native path format returned by `Glob`. On Windows this will be backslash paths like `C:\Users\user\.claude\skills\e2e-forge`. When passing to `npx tsx`, use DOUBLE QUOTES around the full script path to handle spaces and backslashes.
+
+**Auto-bootstrap**: Scripts auto-install their dependencies on first run. If `scripts/node_modules` is missing, the script runs `npm install` automatically. No manual dependency installation is needed beyond the initial skill install.
+
+**Auto .env loading**: Scripts automatically load `.env` from the current working directory (CWD). The agent does NOT need to manually export `AXIOM_QUERY_TOKEN` — just ensure the backend `.env` has the token and run scripts from the backend directory.
 
 ### Running scripts
 

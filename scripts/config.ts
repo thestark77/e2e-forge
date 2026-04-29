@@ -1,5 +1,60 @@
-import { Axiom } from '@axiomhq/js';
+import { existsSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { Axiom } from '@axiomhq/js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ─── Auto-bootstrap: install deps if missing ──────────────────────
+if (!existsSync(join(__dirname, 'node_modules', '@axiomhq', 'js'))) {
+  console.error('[e2e-forge] Dependencies not found. Auto-installing...');
+  try {
+    execSync('npm install --no-audit --no-fund --loglevel=error', {
+      cwd: __dirname,
+      stdio: 'inherit',
+    });
+  } catch {
+    console.error('[e2e-forge] Auto-install failed. Run manually: cd "' + __dirname + '" && npm install');
+    process.exit(1);
+  }
+}
+
+// ─── Load .env from CWD (project directory) ───────────────────────
+function loadEnvFromCwd(): void {
+  const envPath = join(process.cwd(), '.env');
+  if (!existsSync(envPath)) return;
+  const content = readFileSync(envPath, 'utf-8');
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+    // Strip surrounding quotes (double or single)
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFromCwd();
+
+// ─── Lazy import of @axiomhq/js (after bootstrap) ────────────────
+let _axiomModule: typeof import('@axiomhq/js') | undefined;
+
+async function getAxiomModule(): Promise<typeof import('@axiomhq/js')> {
+  if (!_axiomModule) {
+    _axiomModule = await import('@axiomhq/js');
+  }
+  return _axiomModule;
+}
+
+// ─── Configuration ────────────────────────────────────────────────
 export const AXIOM_TOKEN = process.env.AXIOM_QUERY_TOKEN;
 export const DEFAULT_QUERY_DAYS = 30;
 export const QUERY_BATCH_DAYS = 10;
@@ -83,7 +138,7 @@ export function resolveDatasets(configured: string[]): DatasetInfo[] {
   return Object.values(ALL_DATASETS);
 }
 
-export function createAxiomClient(): Axiom {
+export async function createAxiomClient(): Promise<Axiom> {
   if (!AXIOM_TOKEN) {
     console.error(JSON.stringify({
       error: 'AXIOM_QUERY_TOKEN environment variable is not set',
@@ -91,7 +146,8 @@ export function createAxiomClient(): Axiom {
     }));
     process.exit(1);
   }
-  return new Axiom({ token: AXIOM_TOKEN });
+  const { Axiom: AxiomClass } = await getAxiomModule();
+  return new AxiomClass({ token: AXIOM_TOKEN });
 }
 
 export async function discoverAccessibleDatasets(axiom: Axiom): Promise<{

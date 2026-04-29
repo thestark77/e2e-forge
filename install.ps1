@@ -68,6 +68,12 @@ try {
     Pop-Location
 }
 
+# Verify dependencies installed
+$AxiomDir = Join-Path $SkillDir "scripts\node_modules\@axiomhq\js"
+if (-not (Test-Path $AxiomDir)) {
+    Add-Warning "Dependencies may not have installed correctly. Try: cd $ScriptsDir; npm install"
+}
+
 # 5. Check for tsx (optional — falls back to npx tsx)
 $hasTsx = $false
 try {
@@ -132,10 +138,7 @@ Write-Host ""
 Write-Host "2. Add the token to your backend .env:"
 Write-Host "   AXIOM_QUERY_TOKEN=xaat-your-token-here"
 Write-Host ""
-Write-Host "3. Install @axiomhq/js in your backend (if not already):"
-Write-Host "   cd your-backend && pnpm add -D @axiomhq/js"
-Write-Host ""
-Write-Host "4. Use the skill in Claude Code:"
+Write-Host "3. Use the skill in Claude Code:"
 Write-Host "   /e2e-forge"
 Write-Host ""
 Write-Host "==========================" -ForegroundColor Cyan

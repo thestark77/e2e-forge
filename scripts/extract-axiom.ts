@@ -425,7 +425,7 @@ const DATASET_EXTRACTORS: Record<string, ExtractorKey> = {
 
 async function main() {
   const { endpoint, days, datasets: cliDatasets, discover } = parseArgs();
-  const axiom = createAxiomClient();
+  const axiom = await createAxiomClient();
 
   // Discovery mode — just report accessible datasets
   if (discover) {

@@ -54,6 +54,11 @@ else
   warn "No package manager found (pnpm/npm). Run manually: cd ${SKILL_DIR}/scripts && npm install"
 fi
 
+# Verify dependencies installed
+if [ ! -d "${SKILL_DIR}/scripts/node_modules/@axiomhq/js" ]; then
+  warn "Dependencies may not have installed correctly. Try: cd ${SKILL_DIR}/scripts && npm install"
+fi
+
 # 5. Check for tsx (optional — falls back to npx tsx)
 if ! command -v tsx &>/dev/null && ! npx --no tsx --version &>/dev/null 2>&1; then
   warn "tsx not found. Scripts will use 'npx tsx' (slower first run). For faster execution: npm install -g tsx"
@@ -106,10 +111,7 @@ echo ""
 echo "2. Add the token to your backend .env:"
 echo "   AXIOM_QUERY_TOKEN=xaat-your-token-here"
 echo ""
-echo "3. Install @axiomhq/js in your backend (if not already):"
-echo "   cd your-backend && pnpm add -D @axiomhq/js"
-echo ""
-echo "4. Use the skill in Claude Code:"
+echo "3. Use the skill in Claude Code:"
 echo "   /e2e-forge"
 echo ""
 echo "=========================="

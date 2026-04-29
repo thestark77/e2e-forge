@@ -27,12 +27,13 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 
 **Scripts do the HEAVY LIFTING, AI does the THINKING.**
 
-| Layer | What it does | Token cost |
-|-------|-------------|------------|
-| Pre-built scripts | Extract Axiom logs, map routes, trace frontend usage, analyze gaps | Zero |
-| Context gatherer | Ask user for business logic, edge cases, considerations | Minimal |
-| AI test generator | Analyze context + logs + code → generate/improve tests | Justified |
-| TDD Monitor loop | Run tests, watch for failures, iterate until green | Minimal |
+
+| Layer             | What it does                                                       | Token cost |
+| ------------------- | -------------------------------------------------------------------- | ------------ |
+| Pre-built scripts | Extract Axiom logs, map routes, trace frontend usage, analyze gaps | Zero       |
+| Context gatherer  | Ask user for business logic, edge cases, considerations            | Minimal    |
+| AI test generator | Analyze context + logs + code → generate/improve tests            | Justified  |
+| TDD Monitor loop  | Run tests, watch for failures, iterate until green                 | Minimal    |
 
 ## Features
 
@@ -156,14 +157,16 @@ claude plugin install typescript-lsp
 
 ### Required
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+
+| Variable            | Description                            | Example                  |
+| --------------------- | ---------------------------------------- | -------------------------- |
 | `AXIOM_QUERY_TOKEN` | Axiom API token with query permissions | `xaat-02e094c2-dc07-...` |
 
 ### Optional
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+
+| Variable         | Description                                                                                          | Default                |
+| ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------ |
 | `AXIOM_DATASETS` | Comma-separated list of datasets to query. If not set, the skill auto-discovers accessible datasets. | *(all known datasets)* |
 
 > **Log lookback**: The skill defaults to **30 days**. You can override per-request by saying e.g. "con los logs de hace 60 días". Axiom retains logs for at least 90 days. No env var needed.
@@ -184,15 +187,16 @@ AXIOM_DATASETS=bemovil2,errors,bemovil2-providers
 
 The skill knows about the following datasets and intelligently decides which to query based on endpoint analysis:
 
-| Dataset | Contents | When the skill queries it |
-|---------|----------|--------------------------|
-| `bemovil2` | **PRIMARY** — All HTTP request/response logs for every endpoint. Status codes, response times, request/response bodies. | **Always** — queried for every endpoint |
-| `errors` | Application errors with stack traces, error codes, user/business context | When the endpoint has error paths (400, 401, 403, 500) |
-| `bemovil2-providers` | External provider API interactions (payment gateways, SMS, SOAP) | When `route.ts` imports provider services |
-| `bemovil2-providers-sandbox` | Same as providers but for sandbox/staging | When testing sandbox-specific behavior |
-| `bemovil2-queries` | Database query performance — slow queries, error queries with SQL | When the endpoint has complex DB operations |
-| `bemovil2-bridge` | External provider bridge calls with success/error tracking | When the endpoint uses `useBridge=true` |
-| `bemovil2-frontend` | Frontend application metrics and events | When investigating client-side behavior |
+
+| Dataset                      | Contents                                                                                                                 | When the skill queries it                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `bemovil2`                   | **PRIMARY** — All HTTP request/response logs for every endpoint. Status codes, response times, request/response bodies. | **Always** — queried for every endpoint               |
+| `errors`                     | Application errors with stack traces, error codes, user/business context                                                 | When the endpoint has error paths (400, 401, 403, 500) |
+| `bemovil2-providers`         | External provider API interactions (payment gateways, SMS, SOAP)                                                         | When`route.ts` imports provider services               |
+| `bemovil2-providers-sandbox` | Same as providers but for sandbox/staging                                                                                | When testing sandbox-specific behavior                 |
+| `bemovil2-queries`           | Database query performance — slow queries, error queries with SQL                                                       | When the endpoint has complex DB operations            |
+| `bemovil2-bridge`            | External provider bridge calls with success/error tracking                                                               | When the endpoint uses`useBridge=true`                 |
+| `bemovil2-frontend`          | Frontend application metrics and events                                                                                  | When investigating client-side behavior                |
 
 ### How dataset selection works
 
@@ -245,6 +249,7 @@ Here's a complete walkthrough of using e2e-forge when you modify an existing end
 ### Scenario
 
 You've just modified `app/auth/login/route.ts` to add MFA (Multi-Factor Authentication) support. The endpoint now:
+
 - Returns a new status code `202` when MFA is required (previously only 200 or error)
 - Accepts a new optional field `mfaCode` in the request body
 - Returns a new error code `auth.user.invalidMFA` for wrong MFA codes
@@ -386,14 +391,15 @@ Quality Gate: PASS
 
 The skill includes scripts that the AI agent executes automatically. You don't need to run them manually.
 
-| Script | Purpose | Command |
-|--------|---------|---------|
-| `extract-axiom.ts` | Extract production logs from Axiom | `npx tsx extract-axiom.ts --endpoint auth/login --days 30` |
-| `extract-axiom.ts --discover` | Discover which datasets your token can access | `npx tsx extract-axiom.ts --discover` |
-| `batch-extract.ts` | Bulk extraction for multiple endpoints | `npx tsx batch-extract.ts --all --days 60` |
-| `route-mapper.ts` | Map all route.ts files to URL paths | `npx tsx route-mapper.ts --routes-dir ./routes` |
-| `frontend-tracer.ts` | Find frontend files that call each endpoint | `npx tsx frontend-tracer.ts --endpoint auth/login` |
-| `coverage-analyzer.ts` | Identify untested endpoints and coverage gaps | `npx tsx coverage-analyzer.ts --app-dir ./app` |
+
+| Script                        | Purpose                                       | Command                                                    |
+| ------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| `extract-axiom.ts`            | Extract production logs from Axiom            | `npx tsx extract-axiom.ts --endpoint auth/login --days 30` |
+| `extract-axiom.ts --discover` | Discover which datasets your token can access | `npx tsx extract-axiom.ts --discover`                      |
+| `batch-extract.ts`            | Bulk extraction for multiple endpoints        | `npx tsx batch-extract.ts --all --days 60`                 |
+| `route-mapper.ts`             | Map all route.ts files to URL paths           | `npx tsx route-mapper.ts --routes-dir ./routes`            |
+| `frontend-tracer.ts`          | Find frontend files that call each endpoint   | `npx tsx frontend-tracer.ts --endpoint auth/login`         |
+| `coverage-analyzer.ts`        | Identify untested endpoints and coverage gaps | `npx tsx coverage-analyzer.ts --app-dir ./app`             |
 
 ### Extract with specific datasets
 
@@ -469,6 +475,7 @@ Update doc.md for transactions/approve — I added a new validation
 ```
 
 The generated `doc.md` includes:
+
 - Business purpose (inferred from code and tests)
 - Full request/response schema with types and validations
 - JSON examples for every scenario (happy path + errors)
@@ -485,11 +492,12 @@ This mode also supports batch: "documenta todos los endpoints sin doc.md"
 
 The skill automatically detects whether an endpoint follows the **modern** or **legacy** pattern:
 
-| Aspect | Modern | Legacy |
-|--------|--------|--------|
-| Validation | Typed helpers in `@/helpers/` with interfaces and `throw` | `export const validators` importing from `@/middleware/validators/` |
-| Error handling | `throw` with typed error objects | Middleware chain with `next(err)` |
-| Example | `app/auth/login/route.ts` | `app/auth/register/route.ts` |
+
+| Aspect         | Modern                                                   | Legacy                                                              |
+| ---------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| Validation     | Typed helpers in`@/helpers/` with interfaces and `throw` | `export const validators` importing from `@/middleware/validators/` |
+| Error handling | `throw` with typed error objects                         | Middleware chain with`next(err)`                                    |
+| Example        | `app/auth/login/route.ts`                                | `app/auth/register/route.ts`                                        |
 
 **Detection rule**: If the `validators` array imports from `@/middleware/validators/` → **LEGACY**. If validation uses `@/helpers/` with typed interfaces → **MODERN**.
 
@@ -578,6 +586,7 @@ Add the token to your backend `.env` file. Make sure it starts with `xaat-` (not
 ### "Access denied on dataset X"
 
 Your token doesn't have query permissions for that dataset. Either:
+
 - Ask your Axiom admin to add permissions
 - Set `AXIOM_DATASETS` to only the datasets you have access to
 - The skill will work with whatever datasets are available and ask for manual input when needed
